@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Pkly\QueryHelper\Tests;
 
+use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Logging\Middleware;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,10 +16,12 @@ use PHPUnit\Framework\TestCase;
 use Pkly\QueryHelper\Tests\Fixtures\Entity\Post;
 use Pkly\QueryHelper\Tests\Fixtures\Entity\Tag;
 use Pkly\QueryHelper\Tests\Fixtures\Entity\User;
+use Pkly\QueryHelper\Tests\Fixtures\QueryRecorder;
 
 abstract class AbstractDoctrineTestCase extends TestCase
 {
     private EntityManagerInterface $entityManager;
+    private QueryRecorder $queryRecorder;
 
     protected function setUp(): void
     {
@@ -27,7 +31,12 @@ abstract class AbstractDoctrineTestCase extends TestCase
         $config->setMetadataDriverImpl(new AttributeDriver([__DIR__.'/Fixtures/Entity']));
         $config->enableNativeLazyObjects(true);
 
-        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $this->queryRecorder = new QueryRecorder();
+
+        $dbalConfig = new DbalConfiguration();
+        $dbalConfig->setMiddlewares([new Middleware($this->queryRecorder)]);
+
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $dbalConfig);
 
         $this->entityManager = new EntityManager($connection, $config);
 
@@ -49,6 +58,21 @@ abstract class AbstractDoctrineTestCase extends TestCase
     protected function getEntityManager(): EntityManagerInterface
     {
         return $this->entityManager;
+    }
+
+    /**
+     * Runs $callable with a clean recorder and returns the SQL of the last statement it executed.
+     *
+     * @param callable(): mixed $callable
+     */
+    protected function captureLastSql(
+        callable $callable
+    ): string {
+        $this->queryRecorder->reset();
+
+        $callable();
+
+        return $this->queryRecorder->getLastQuery();
     }
 
     protected function persist(
