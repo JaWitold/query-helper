@@ -109,10 +109,7 @@ class QueryHelper
         assert($this->validateQueryBuilder());
 
         $qb = (clone $this->queryBuilder);
-
-        if ($this->distinct) {
-            $qb->select('DISTINCT entity');
-        }
+        $qb->distinct($this->isDistinct());
 
         $query = $qb->getQuery();
 
@@ -205,9 +202,11 @@ class QueryHelper
         assert($this->validateQueryBuilder());
 
         $id = 'entity.'.$this->getIdentifierField();
+        $distinct = $this->isDistinct();
 
         return (int)(clone $this->queryBuilder)
-            ->select($this->distinct ? 'COUNT(DISTINCT '.$id.')' : 'COUNT(1)')
+            ->distinct(false)
+            ->select($distinct ? 'COUNT(DISTINCT '.$id.')' : 'COUNT(1)')
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -219,10 +218,9 @@ class QueryHelper
     {
         assert($this->validateQueryBuilder());
 
-        $id = 'entity.'.$this->getIdentifierField();
-
         $query = (clone $this->queryBuilder)
-            ->select(($this->distinct ? 'DISTINCT ' : '').$id)
+            ->distinct($this->isDistinct())
+            ->select('entity.'.$this->getIdentifierField())
             ->getQuery();
 
         if (null !== $this->lockMode) {
@@ -285,5 +283,10 @@ class QueryHelper
         } finally {
             $this->limit($limit);
         }
+    }
+
+    private function isDistinct(): bool
+    {
+        return $this->distinct || true === $this->queryBuilder->getDQLPart('distinct');
     }
 }
