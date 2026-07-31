@@ -24,7 +24,12 @@ vendor/bin/php-cs-fixer fix --config ./.php-cs-fixer.dist.php --dry-run --diff -
 vendor/bin/php-cs-fixer fix --config ./.php-cs-fixer.dist.php --ansi --show-progress none
 ```
 
-There are no unit tests — the test job in CI is commented out and PHPUnit is not installed.
+**Run tests:**
+```bash
+vendor/bin/phpunit
+```
+
+Tests live in `tests/` and run against an in-memory SQLite database via `AbstractDoctrineTestCase`, which builds a real `EntityManager` over the attribute-mapped fixtures in `tests/Fixtures/Entity` and creates the schema per test. `AbstractDoctrineTestCase::captureLastSql()` runs a callable and returns the SQL of the last statement it executed (recorded by `tests/Fixtures/QueryRecorder.php` through the DBAL logging middleware) — needed because some behavior is only visible in the generated SQL, not in the hydrated results. CI runs PHPStan, PHP-CS-Fixer, then PHPUnit against Symfony 6.4 and 7.4 on PHP 8.4.
 
 ## Architecture
 
@@ -42,6 +47,8 @@ The library is a single class: `src/QueryHelper.php`. It wraps Doctrine ORM's `Q
 - Chainable modifiers: `limit()`, `offset()`, `distinct()`, `lockMode()`, `orderBy()`, `addOrderBy()` — all return `static`
 
 **Key implementation detail:** Single-result methods (`value()`, `id()`, `reference()`) call the private `withSingleResult()` helper, which clones the internal QueryBuilder and sets `maxResults(1)` before executing, so they never mutate the stored builder.
+
+**Distinct resolution:** `distinct()` sets a local flag, but the private `isDistinct()` ORs it with the wrapped builder's own `distinct` DQL part, so `$qb->distinct()` set by the caller applies to every fetcher and cannot be turned off via `distinct(false)`. Each fetcher applies the result to its clone through `QueryBuilder::distinct()` rather than baking `DISTINCT` into a select string — that keeps custom selects intact — except `count()`, which clears it and uses `COUNT(DISTINCT entity.<id>)` instead.
 
 **PHPStan suppression:** A few `@phpstan-ignore` comments exist in `QueryHelper.php` where the type system cannot fully verify generic constraints — these are intentional and should not be removed.
 

@@ -52,6 +52,11 @@ class QueryHelper
         return $this;
     }
 
+    /**
+     * Note that passing false here does not necessarily disable distinct results — if the wrapped
+     * QueryBuilder was itself set up with QueryBuilder::distinct(), that setting wins and every
+     * fetcher stays distinct regardless of this flag.
+     */
     public function distinct(
         bool $distinct = true
     ): static {
@@ -173,6 +178,7 @@ class QueryHelper
             $selects[] = str_contains($field, '.') ? $field : 'entity.'.$field;
         }
 
+        $qb->distinct($this->isDistinct());
         $qb->select(...$selects);
 
         $query = $qb->getQuery();

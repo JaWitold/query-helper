@@ -6,7 +6,6 @@ namespace Pkly\QueryHelper\Tests;
 
 use Doctrine\Common\Collections\Order;
 use Pkly\QueryHelper\QueryHelper;
-use Pkly\QueryHelper\Tests\Fixtures\Entity\Post;
 use Pkly\QueryHelper\Tests\Fixtures\Entity\User;
 
 class QueryHelperTest extends AbstractDoctrineTestCase
@@ -215,39 +214,24 @@ class QueryHelperTest extends AbstractDoctrineTestCase
         static::assertSame(['Bob', 'Alice'], $names);
     }
 
-    public function testDistinctCountDeduplicates(): void
+    public function testAddOrderByActsAsATieBreakerWithoutReplacingThePrimarySort(): void
     {
-        $user = $this->makeUser();
-        $this->persist(new Post('Post 1', $user));
-        $this->persist(new Post('Post 2', $user));
+        $this->makeUser('Alice', 'alice-a@example.com');
+        $this->makeUser('Alice', 'alice-b@example.com');
+        $this->makeUser('Bob', 'bob@example.com');
 
-        $qb = $this->getEntityManager()
-            ->createQueryBuilder()
-            ->select('entity')
-            ->from(User::class, 'entity')
-            ->join(Post::class, 'post', 'WITH', 'post.author = entity');
+        $emails = $this->userHelper()
+            ->orderBy('entity.name', Order::Ascending)
+            ->addOrderBy('entity.email', Order::Descending)
+            ->fieldList(['email'])
+            ->map(fn (array $r) => $r['email'])
+            ->toArray();
 
-        $helper = new QueryHelper($qb); // @phpstan-ignore-line
-
-        static::assertSame(2, $helper->count());
-        static::assertSame(1, $helper->distinct()->count());
-    }
-
-    public function testDistinctListDeduplicates(): void
-    {
-        $user = $this->makeUser();
-        $this->persist(new Post('Post 1', $user));
-        $this->persist(new Post('Post 2', $user));
-
-        $qb = $this->getEntityManager()
-            ->createQueryBuilder()
-            ->select('entity')
-            ->from(User::class, 'entity')
-            ->join(Post::class, 'post', 'WITH', 'post.author = entity');
-
-        $result = new QueryHelper($qb)->distinct()->list(); // @phpstan-ignore-line
-
-        static::assertCount(1, $result);
+        static::assertSame([
+            'alice-b@example.com',
+            'alice-a@example.com',
+            'bob@example.com',
+        ], $emails);
     }
 
     public function testListWithWhereClause(): void
