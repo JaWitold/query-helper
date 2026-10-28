@@ -48,6 +48,10 @@ $helper->reference(); // single reference from Doctrine
 $helper->references(); // list of references
 $helper->fields(['order']); // single array of fields (one row)
 $helper->fieldList(['order']); // list of fields (multiple rows)
+$helper->model(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // single DTO via SELECT NEW
+$helper->models(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // list of DTOs via SELECT NEW
+$helper->modelRow(['order' => Model::of(OrderSummary::class, ['id'])]); // single row of side-by-side DTOs keyed by alias
+$helper->modelRows(['order' => Model::of(OrderSummary::class, ['id'])]); // list of rows of side-by-side DTOs
 $helper->count(); // simple count
 $helper->exists(); // boolean existence check
 
@@ -57,6 +61,51 @@ $object = $em->getRepository(FooEntity::class)
     ->findByOrder($order)
     ->lockMode(LockMode::PESSIMISTIC_WRITE)
     ->value(); // returns T|null
+```
+
+### DTO hydration
+
+`models()` / `model()` hydrate rows straight into a plain class through DQL `SELECT NEW`, so no
+entity is loaded and nothing touches the UnitOfWork. Fields are passed to the constructor in order;
+bare names are prefixed with `entity.`, anything containing a dot or function call is used as-is.
+
+```php
+final class OrderSummary
+{
+    public function __construct(
+        private readonly int $id,
+        private readonly int $orderId,
+    ) {
+    }
+}
+
+$repository->findByOrder($order)->models(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']);
+```
+
+A field may itself be a `Model`, which becomes a nested `NEW` expression passed to the outer constructor:
+
+```php
+$repository->findByOrder($order)
+    ->getQueryBuilder()->join('entity.customer', 'c');
+
+$repository->findByOrder($order)->models(OrderDetails::class, [
+    'id',
+    'total',
+    Model::of(CustomerSummary::class, ['c.id', 'c.name']),
+]);
+```
+
+`modelRows()` / `modelRow()` select several models side by side; every row is an array keyed by the
+given aliases:
+
+```php
+$rows = $helper->modelRows([
+    'order' => Model::of(OrderSummary::class, ['id', 'total']),
+    'customer' => Model::of(CustomerSummary::class, ['c.id', 'c.name']),
+]);
+
+$rows[0]['order'];    // OrderSummary
+$rows[0]['customer']; // CustomerSummary
 ```
 
 ### Feature requests?
