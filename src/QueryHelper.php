@@ -205,24 +205,22 @@ class QueryHelper
 
     /**
      * Hydrates each row directly into a plain object via DQL `SELECT NEW Class(...)`, bypassing
-     * entity hydration and the UnitOfWork entirely. $fields are passed positionally to the
-     * constructor of $class; bare names are prefixed with `entity.`, anything containing a dot or
-     * parentheses (`entity.title`, `IDENTITY(entity.author)`, `COUNT(entity.id)`) is used verbatim.
-     * A field may also be a Model, which becomes a nested NEW expression.
+     * entity hydration and the UnitOfWork entirely. The Model's fields are passed positionally to
+     * the constructor of its class; bare names are prefixed with `entity.`, anything containing a
+     * dot or parentheses (`entity.title`, `IDENTITY(entity.author)`, `COUNT(entity.id)`) is used
+     * verbatim. A field may also be a Model, which becomes a nested NEW expression.
      *
      * @template TModel of object
      *
-     * @param class-string<TModel>                 $class
-     * @param non-empty-list<string|Model<object>> $fields
+     * @param Model<TModel> $model
      *
      * @return Collection<int, TModel>
      */
     public function models(
-        string $class,
-        array $fields
+        Model $model
     ): Collection {
         /** @var list<TModel> $result */
-        $result = $this->executeNew(Model::of($class, $fields));
+        $result = $this->executeNew($model);
 
         return new ArrayCollection($result);
     }
@@ -230,16 +228,14 @@ class QueryHelper
     /**
      * @template TModel of object
      *
-     * @param class-string<TModel>                 $class
-     * @param non-empty-list<string|Model<object>> $fields
+     * @param Model<TModel> $model
      *
      * @return TModel|null
      */
     public function model(
-        string $class,
-        array $fields
+        Model $model
     ): object|null {
-        return $this->withSingleResult(fn () => $this->models($class, $fields)[0] ?? null);
+        return $this->withSingleResult(fn () => $this->models($model)[0] ?? null);
     }
 
     public function count(): int

@@ -48,8 +48,8 @@ $helper->reference(); // single reference from Doctrine
 $helper->references(); // list of references
 $helper->fields(['order']); // single array of fields (one row)
 $helper->fieldList(['order']); // list of fields (multiple rows)
-$helper->model(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // single DTO via SELECT NEW
-$helper->models(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // list of DTOs via SELECT NEW
+$helper->model(Model::of(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)'])); // single DTO via SELECT NEW
+$helper->models(Model::of(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)'])); // list of DTOs via SELECT NEW
 $helper->count(); // simple count
 $helper->exists(); // boolean existence check
 
@@ -63,9 +63,10 @@ $object = $em->getRepository(FooEntity::class)
 
 ### DTO hydration
 
-`models()` / `model()` hydrate rows straight into a plain class through DQL `SELECT NEW`, so no
-entity is loaded and nothing touches the UnitOfWork. Fields are passed to the constructor in order;
-bare names are prefixed with `entity.`, anything containing a dot or function call is used as-is.
+`models()` / `model()` take a `Model::of(Class::class, [...fields])` and hydrate rows straight into
+that class through DQL `SELECT NEW`, so no entity is loaded and nothing touches the UnitOfWork.
+Fields are passed to the constructor in order; bare names are prefixed with `entity.`, anything
+containing a dot or function call is used as-is.
 
 ```php
 final class OrderSummary
@@ -77,7 +78,7 @@ final class OrderSummary
     }
 }
 
-$repository->findByOrder($order)->models(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']);
+$repository->findByOrder($order)->models(Model::of(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']));
 ```
 
 A field may itself be a `Model`, which becomes a nested `NEW` expression: the inner object is built
@@ -98,11 +99,11 @@ final class OrderDetails
 $helper = $repository->findByOrder($order);
 $helper->getQueryBuilder()->join('entity.customer', 'c');
 
-$helper->models(OrderDetails::class, [
+$helper->models(Model::of(OrderDetails::class, [
     'id',
     'total',
     Model::of(CustomerSummary::class, ['c.id', 'c.name']),
-]);
+]));
 // SELECT NEW OrderDetails(entity.id, entity.total, NEW CustomerSummary(c.id, c.name)) ...
 ```
 
@@ -124,10 +125,10 @@ final class OrderWithCustomer
     }
 }
 
-$helper->models(OrderWithCustomer::class, [
+$helper->models(Model::of(OrderWithCustomer::class, [
     Model::of(OrderSummary::class, ['id', 'total']),
     Model::of(CustomerSummary::class, ['c.id', 'c.name']),
-]); // Collection<int, OrderWithCustomer>
+])); // Collection<int, OrderWithCustomer>
 ```
 
 ### Feature requests?

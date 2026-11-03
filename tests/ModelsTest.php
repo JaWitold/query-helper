@@ -20,7 +20,7 @@ class ModelsTest extends AbstractDoctrineTestCase
     {
         $helper = new QueryHelper($this->getEntityManager()->getRepository(User::class)->createQueryBuilder('entity'));
 
-        static::assertCount(0, $helper->models(UserSummary::class, ['id', 'name']));
+        static::assertCount(0, $helper->models(Model::of(UserSummary::class, ['id', 'name'])));
     }
 
     public function testModelsHydratesTypedObjects(): void
@@ -33,7 +33,7 @@ class ModelsTest extends AbstractDoctrineTestCase
 
         $models = $helper
             ->orderBy('entity.name', Order::Ascending)
-            ->models(UserSummary::class, ['id', 'name']);
+            ->models(Model::of(UserSummary::class, ['id', 'name']));
 
         static::assertCount(2, $models);
         static::assertSame($alice->getId(), $models[0]?->getId());
@@ -51,7 +51,7 @@ class ModelsTest extends AbstractDoctrineTestCase
 
         $helper = new QueryHelper($em->getRepository(User::class)->createQueryBuilder('entity'));
 
-        $models = $helper->models(UserSummary::class, ['id', 'name']);
+        $models = $helper->models(Model::of(UserSummary::class, ['id', 'name']));
 
         static::assertCount(1, $models);
         static::assertInstanceOf(UserSummary::class, $models[0]);
@@ -66,7 +66,7 @@ class ModelsTest extends AbstractDoctrineTestCase
 
         $helper = new QueryHelper($this->getEntityManager()->getRepository(Post::class)->createQueryBuilder('entity'));
 
-        $models = $helper->models(PostSummary::class, ['IDENTITY(entity.author)', 'entity.title']);
+        $models = $helper->models(Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'entity.title']));
 
         static::assertCount(1, $models);
         static::assertSame($alice->getId(), $models[0]?->getAuthorId());
@@ -81,7 +81,7 @@ class ModelsTest extends AbstractDoctrineTestCase
         $helper = new QueryHelper($this->getEntityManager()->getRepository(Post::class)->createQueryBuilder('entity'));
 
         $sql = $this->captureLastSql(
-            fn () => $helper->distinct()->models(PostSummary::class, ['IDENTITY(entity.author)', 'entity.title'])
+            fn () => $helper->distinct()->models(Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'entity.title']))
         );
 
         static::assertStringContainsStringIgnoringCase('SELECT DISTINCT', $sql);
@@ -98,11 +98,11 @@ class ModelsTest extends AbstractDoctrineTestCase
                 ->join('entity.author', 'a')
         );
 
-        $models = $helper->models(PostDetails::class, [
+        $models = $helper->models(Model::of(PostDetails::class, [
             'id',
             'title',
             Model::of(UserSummary::class, ['a.id', 'a.name']),
-        ]);
+        ]));
 
         static::assertCount(1, $models);
         $details = $models[0];
@@ -117,7 +117,7 @@ class ModelsTest extends AbstractDoctrineTestCase
     {
         $helper = new QueryHelper($this->getEntityManager()->getRepository(User::class)->createQueryBuilder('entity'));
 
-        static::assertNull($helper->model(UserSummary::class, ['id', 'name']));
+        static::assertNull($helper->model(Model::of(UserSummary::class, ['id', 'name'])));
     }
 
     public function testModelReturnsSingleObjectAndDoesNotMutateLimit(): void
@@ -127,10 +127,10 @@ class ModelsTest extends AbstractDoctrineTestCase
         $helper = new QueryHelper($this->getEntityManager()->getRepository(User::class)->createQueryBuilder('entity'));
         $helper->limit(10);
 
-        $model = $helper->model(UserSummary::class, ['id', 'name']);
+        $model = $helper->model(Model::of(UserSummary::class, ['id', 'name']));
 
         static::assertInstanceOf(UserSummary::class, $model);
-        static::assertCount(2, $helper->models(UserSummary::class, ['id', 'name']));
+        static::assertCount(2, $helper->models(Model::of(UserSummary::class, ['id', 'name'])));
     }
 
     public function testModelsHydratesSiblingNestedModelsIntoWrapper(): void
@@ -143,10 +143,10 @@ class ModelsTest extends AbstractDoctrineTestCase
                 ->join('entity.author', 'a')
         );
 
-        $models = $helper->models(PostWithAuthor::class, [
+        $models = $helper->models(Model::of(PostWithAuthor::class, [
             Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'title']),
             Model::of(UserSummary::class, ['a.id', 'a.name']),
-        ]);
+        ]));
 
         static::assertCount(1, $models);
         $row = $models[0];
