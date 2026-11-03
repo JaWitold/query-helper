@@ -50,8 +50,6 @@ $helper->fields(['order']); // single array of fields (one row)
 $helper->fieldList(['order']); // list of fields (multiple rows)
 $helper->model(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // single DTO via SELECT NEW
 $helper->models(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)']); // list of DTOs via SELECT NEW
-$helper->modelRow(['order' => Model::of(OrderSummary::class, ['id'])]); // single row of side-by-side DTOs keyed by alias
-$helper->modelRows(['order' => Model::of(OrderSummary::class, ['id'])]); // list of rows of side-by-side DTOs
 $helper->count(); // simple count
 $helper->exists(); // boolean existence check
 
@@ -113,30 +111,23 @@ and without hydrating any entity. It only covers to-one shapes: each row yields 
 object per nested `Model`. A to-many relation cannot be hydrated into a collection this way — joining
 one would produce one outer object per joined row instead.
 
-`modelRows()` / `modelRow()` select several models side by side; every row is an array keyed by the
-given aliases:
+Several sibling `Model`s give side-by-side DTOs per row: wrap them in a class whose constructor takes
+each one.
 
 ```php
-$rows = $helper->modelRows([
-    'order' => Model::of(OrderSummary::class, ['id', 'total']),
-    'customer' => Model::of(CustomerSummary::class, ['c.id', 'c.name']),
-]);
+final class OrderWithCustomer
+{
+    public function __construct(
+        public readonly OrderSummary $order,
+        public readonly CustomerSummary $customer,
+    ) {
+    }
+}
 
-$rows[0]['order'];    // OrderSummary
-$rows[0]['customer']; // CustomerSummary
-```
-
-### PHPStan integration
-
-The package ships a PHPStan extension that narrows `modelRows()` / `modelRow()` return types when the
-alias map is a literal: the example above is inferred as
-`Collection<int, array{order: OrderSummary, customer: CustomerSummary}>`. With
-[`phpstan/extension-installer`](https://github.com/phpstan/extension-installer) it is picked up automatically; 
-otherwise include it manually:
-
-```neon
-includes:
-    - vendor/pkly/query-helper/extension.neon
+$helper->models(OrderWithCustomer::class, [
+    Model::of(OrderSummary::class, ['id', 'total']),
+    Model::of(CustomerSummary::class, ['c.id', 'c.name']),
+]); // Collection<int, OrderWithCustomer>
 ```
 
 ### Feature requests?

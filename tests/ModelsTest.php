@@ -11,6 +11,7 @@ use Pkly\QueryHelper\Tests\Fixtures\Entity\Post;
 use Pkly\QueryHelper\Tests\Fixtures\Entity\User;
 use Pkly\QueryHelper\Tests\Fixtures\Model\PostDetails;
 use Pkly\QueryHelper\Tests\Fixtures\Model\PostSummary;
+use Pkly\QueryHelper\Tests\Fixtures\Model\PostWithAuthor;
 use Pkly\QueryHelper\Tests\Fixtures\Model\UserSummary;
 
 class ModelsTest extends AbstractDoctrineTestCase
@@ -132,7 +133,7 @@ class ModelsTest extends AbstractDoctrineTestCase
         static::assertCount(2, $helper->models(UserSummary::class, ['id', 'name']));
     }
 
-    public function testModelRowsHydratesSideBySideModels(): void
+    public function testModelsHydratesSiblingNestedModelsIntoWrapper(): void
     {
         $alice = new User('Alice', 'alice@example.com');
         $this->persist($alice, new Post('Hello', $alice));
@@ -142,45 +143,16 @@ class ModelsTest extends AbstractDoctrineTestCase
                 ->join('entity.author', 'a')
         );
 
-        $rows = $helper->modelRows([
-            'post' => Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'title']),
-            'author' => Model::of(UserSummary::class, ['a.id', 'a.name']),
+        $models = $helper->models(PostWithAuthor::class, [
+            Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'title']),
+            Model::of(UserSummary::class, ['a.id', 'a.name']),
         ]);
 
-        static::assertCount(1, $rows);
-        $row = $rows[0];
-        static::assertIsArray($row);
-        static::assertSame(['post', 'author'], array_keys($row));
-        static::assertInstanceOf(PostSummary::class, $row['post']);
-        static::assertInstanceOf(UserSummary::class, $row['author']);
-        static::assertSame('Hello', $row['post']->getTitle());
-        static::assertSame($alice->getId(), $row['post']->getAuthorId());
-        static::assertSame('Alice', $row['author']->getName());
-    }
-
-    public function testModelRowReturnsNullWhenNoMatch(): void
-    {
-        $helper = new QueryHelper($this->getEntityManager()->getRepository(Post::class)->createQueryBuilder('entity'));
-
-        static::assertNull($helper->modelRow([
-            'post' => Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'title']),
-        ]));
-    }
-
-    public function testModelRowReturnsSingleRowAndDoesNotMutateLimit(): void
-    {
-        $alice = new User('Alice', 'alice@example.com');
-        $this->persist($alice, new Post('A', $alice), new Post('B', $alice));
-
-        $helper = new QueryHelper($this->getEntityManager()->getRepository(Post::class)->createQueryBuilder('entity'));
-        $helper->limit(10);
-
-        $models = ['post' => Model::of(PostSummary::class, ['IDENTITY(entity.author)', 'title'])];
-
-        $row = $helper->modelRow($models);
-
-        static::assertIsArray($row);
-        static::assertInstanceOf(PostSummary::class, $row['post']);
-        static::assertCount(2, $helper->modelRows($models));
+        static::assertCount(1, $models);
+        $row = $models[0];
+        static::assertInstanceOf(PostWithAuthor::class, $row);
+        static::assertSame('Hello', $row->getPost()->getTitle());
+        static::assertSame($alice->getId(), $row->getPost()->getAuthorId());
+        static::assertSame('Alice', $row->getAuthor()->getName());
     }
 }

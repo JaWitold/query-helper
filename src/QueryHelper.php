@@ -222,7 +222,7 @@ class QueryHelper
         array $fields
     ): Collection {
         /** @var list<TModel> $result */
-        $result = $this->executeNew([Model::of($class, $fields)]);
+        $result = $this->executeNew(Model::of($class, $fields));
 
         return new ArrayCollection($result);
     }
@@ -240,41 +240,6 @@ class QueryHelper
         array $fields
     ): object|null {
         return $this->withSingleResult(fn () => $this->models($class, $fields)[0] ?? null);
-    }
-
-    /**
-     * Hydrates several side-by-side models per row: each row is an array keyed by the given
-     * aliases, each holding the corresponding Model instance.
-     *
-     * @param non-empty-array<string, Model<object>> $models
-     *
-     * @return Collection<int, array<string, object>>
-     */
-    public function modelRows(
-        array $models
-    ): Collection {
-        $alias = array_key_first($models);
-        $rows = [];
-
-        // Doctrine unwraps a single select expression to the bare object, so re-key it by its alias
-        foreach ($this->executeNew($models) as $row) {
-            /** @var array<string, object> $row */
-            $row = is_array($row) ? $row : [$alias => $row];
-            $rows[] = $row;
-        }
-
-        return new ArrayCollection($rows);
-    }
-
-    /**
-     * @param non-empty-array<string, Model<object>> $models
-     *
-     * @return array<string, object>|null
-     */
-    public function modelRow(
-        array $models
-    ): array|null {
-        return $this->withSingleResult(fn () => $this->modelRows($models)[0] ?? null);
     }
 
     public function count(): int
@@ -341,24 +306,18 @@ class QueryHelper
     }
 
     /**
-     * @param non-empty-array<array-key, Model<object>> $models
+     * @param Model<object> $model
      *
      * @return list<mixed>
      */
     private function executeNew(
-        array $models
+        Model $model
     ): array {
         assert($this->validateQueryBuilder());
 
-        $selects = [];
-
-        foreach ($models as $alias => $model) {
-            $selects[] = is_string($alias) ? $this->toNewExpression($model).' AS '.$alias : $this->toNewExpression($model);
-        }
-
         $qb = (clone $this->queryBuilder);
         $qb->distinct($this->isDistinct());
-        $qb->select(...$selects);
+        $qb->select($this->toNewExpression($model));
 
         $query = $qb->getQuery();
 

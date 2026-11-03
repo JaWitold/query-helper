@@ -1,6 +1,5 @@
 includes:
   - vendor/phpstan/phpstan-strict-rules/rules.neon
-  - extension.neon
 
 parameters:
   strictRules:
