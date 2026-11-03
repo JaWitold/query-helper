@@ -175,7 +175,7 @@ class QueryHelper
         $selects = [];
 
         foreach ($fields as $field) {
-            $selects[] = str_contains($field, '.') ? $field : 'entity.'.$field;
+            $selects[] = $this->qualifyField($field);
         }
 
         $qb->distinct($this->isDistinct());
@@ -201,6 +201,41 @@ class QueryHelper
         array $fields
     ): array|null {
         return $this->withSingleResult(fn () => $this->fieldList($fields)[0] ?? null);
+    }
+
+    /**
+     * Hydrates each row directly into a plain object via DQL `SELECT NEW Class(...)`, bypassing
+     * entity hydration and the UnitOfWork entirely. The Model's fields are passed positionally to
+     * the constructor of its class; bare names are prefixed with `entity.`, anything containing a
+     * dot or parentheses (`entity.title`, `IDENTITY(entity.author)`, `COUNT(entity.id)`) is used
+     * verbatim. A field may also be a Model, which becomes a nested NEW expression.
+     *
+     * @template TModel of object
+     *
+     * @param Model<TModel> $model
+     *
+     * @return Collection<int, TModel>
+     */
+    public function models(
+        Model $model
+    ): Collection {
+        /** @var list<TModel> $result */
+        $result = $this->executeNew($model);
+
+        return new ArrayCollection($result);
+    }
+
+    /**
+     * @template TModel of object
+     *
+     * @param Model<TModel> $model
+     *
+     * @return TModel|null
+     */
+    public function model(
+        Model $model
+    ): object|null {
+        return $this->withSingleResult(fn () => $this->models($model)[0] ?? null);
     }
 
     public function count(): int
@@ -264,6 +299,53 @@ class QueryHelper
         $em = $this->queryBuilder->getEntityManager();
 
         return $em->getClassMetadata($class)->getIdentifierFieldNames()[0];
+    }
+
+    /**
+     * @param Model<object> $model
+     *
+     * @return list<mixed>
+     */
+    private function executeNew(
+        Model $model
+    ): array {
+        assert($this->validateQueryBuilder());
+
+        $qb = (clone $this->queryBuilder);
+        $qb->distinct($this->isDistinct());
+        $qb->select($this->toNewExpression($model));
+
+        $query = $qb->getQuery();
+
+        if (null !== $this->lockMode) {
+            $query->setLockMode($this->lockMode);
+        }
+
+        /** @var list<mixed> $result */
+        $result = $query->getResult();
+
+        return $result;
+    }
+
+    /**
+     * @param Model<object> $model
+     */
+    private function toNewExpression(
+        Model $model
+    ): string {
+        $arguments = [];
+
+        foreach ($model->getFields() as $field) {
+            $arguments[] = $field instanceof Model ? $this->toNewExpression($field) : $this->qualifyField($field);
+        }
+
+        return sprintf('NEW %s(%s)', $model->getClass(), implode(', ', $arguments));
+    }
+
+    private function qualifyField(
+        string $field
+    ): string {
+        return 1 === preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $field) ? 'entity.'.$field : $field;
     }
 
     private function validateQueryBuilder(): bool
