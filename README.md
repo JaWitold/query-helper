@@ -48,6 +48,8 @@ $helper->reference(); // single reference from Doctrine
 $helper->references(); // list of references
 $helper->fields(['order']); // single array of fields (one row)
 $helper->fieldList(['order']); // list of fields (multiple rows)
+$helper->partial(['status']); // single object with only some fields loaded via SELECT PARTIAL
+$helper->partials(['status']); // list of objects with only some fields loaded via SELECT PARTIAL
 $helper->model(Model::of(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)'])); // single DTO via SELECT NEW
 $helper->models(Model::of(OrderSummary::class, ['id', 'IDENTITY(entity.relatedOrder)'])); // list of DTOs via SELECT NEW
 $helper->count(); // simple count

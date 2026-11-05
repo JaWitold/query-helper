@@ -204,6 +204,52 @@ class QueryHelper
     }
 
     /**
+     * Hydrates entities with only the given fields loaded, via DQL `SELECT PARTIAL entity.{...}`.
+     * Fields are bare names of mapped fields or owning to-one associations of the main entity; the
+     * identifier is always added. Unselected properties stay uninitialized, and an entity already
+     * managed by the EntityManager is returned as-is (fully loaded), not re-hydrated partially.
+     *
+     * @param list<string> $fields
+     *
+     * @return Collection<int, TValue>
+     */
+    public function partials(
+        array $fields
+    ): Collection {
+        assert(!empty($fields));
+        assert($this->validateQueryBuilder());
+
+        $main = $this->getMainFrom();
+
+        assert(null !== $main);
+
+        $identifier = $this->queryBuilder->getEntityManager()->getClassMetadata($main->getFrom())->getIdentifierFieldNames();
+
+        $qb = (clone $this->queryBuilder);
+        $qb->distinct($this->isDistinct());
+        $qb->select(sprintf('PARTIAL entity.{%s}', implode(', ', array_unique([...$identifier, ...$fields]))));
+
+        $query = $qb->getQuery();
+
+        if (null !== $this->lockMode) {
+            $query->setLockMode($this->lockMode);
+        }
+
+        return new ArrayCollection($query->getResult()); // @phpstan-ignore-line
+    }
+
+    /**
+     * @param list<string> $fields
+     *
+     * @return TValue|null
+     */
+    public function partial(
+        array $fields
+    ): mixed {
+        return $this->withSingleResult(fn () => $this->partials($fields)[0] ?? null);
+    }
+
+    /**
      * Hydrates each row directly into a plain object via DQL `SELECT NEW Class(...)`, bypassing
      * entity hydration and the UnitOfWork entirely. The Model's fields are passed positionally to
      * the constructor of its class; bare names are prefixed with `entity.`, anything containing a

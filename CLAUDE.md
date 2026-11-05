@@ -43,6 +43,7 @@ The library is `src/QueryHelper.php` plus the small `src/Model.php` value object
 - Result fetchers: `value()`, `id()`, `list()`, `ids()` — return entities/IDs
 - Reference fetchers: `reference()`, `references()` — return Doctrine lazy-loading references via `EntityManager::getReference()`
 - Field fetchers: `fields()`, `fieldList()` — return raw scalar arrays for specific field selections
+- Partial fetchers: `partial()`, `partials()` — return entities hydrated via DQL `SELECT PARTIAL entity.{...}` with only the given fields (identifier always added); unselected properties stay uninitialized, and entities already in the identity map come back fully loaded
 - Model fetchers: `model()`, `models()` — take a `Model` (`src/Model.php`, built with `Model::of(Class::class, [...])`) and hydrate rows into plain objects via DQL `SELECT NEW Class(...)`, bypassing entity hydration; fields go positionally to the constructor. A field may itself be a `Model` for a nested `NEW`. Side-by-side DTOs per row are done with a wrapper class whose constructor takes several sibling `Model`s.
 - Aggregates: `count()`, `exists()`
 - Chainable modifiers: `limit()`, `offset()`, `distinct()`, `lockMode()`, `orderBy()`, `addOrderBy()` — all return `static`
