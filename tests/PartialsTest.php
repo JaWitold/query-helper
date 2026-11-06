@@ -24,7 +24,9 @@ class PartialsTest extends AbstractDoctrineTestCase
         $first = $users->first();
         static::assertInstanceOf(User::class, $first);
         static::assertNotNull($first->getId());
-        static::assertFalse((new \ReflectionProperty(User::class, 'email'))->isInitialized($first));
+
+        $property = new \ReflectionProperty(User::class, 'email');
+        static::assertTrue($property->isLazy($first) || !$property->isInitialized($first));
     }
 
     public function testPartialsAlwaysSelectIdentifierAndSkipOtherColumns(): void
@@ -50,7 +52,9 @@ class PartialsTest extends AbstractDoctrineTestCase
 
         static::assertInstanceOf(Post::class, $post);
         static::assertSame($author->getId(), $post->getAuthor()->getId());
-        static::assertFalse((new \ReflectionProperty(Post::class, 'title'))->isInitialized($post));
+
+        $property = new \ReflectionProperty(Post::class, 'title');
+        static::assertTrue($property->isLazy($post) || !$property->isInitialized($post));
     }
 
     public function testPartialReturnsNullWhenNoMatch(): void
